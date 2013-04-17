@@ -46,6 +46,8 @@ public class ReconGaggleBridgeActivity extends Activity implements IReconEventLi
    @SuppressWarnings("unused")
    private static final String CMD_DEVICENAME  = "_USR";
 
+   private long takeoffTime = System.currentTimeMillis();
+   
 	 private VarioView surface;
 	 private VarioData   data = new VarioData();
 
@@ -130,8 +132,6 @@ public class ReconGaggleBridgeActivity extends Activity implements IReconEventLi
 	  if (canvas == null) {
 	    Log.d(TAG, "Surface not initialized");
 	  } else {
-      Log.d(TAG, "Surface initialized ok");
-	  
   	  float w = canvas.getWidth(),
   	        h = canvas.getHeight(), 
   	        cx = w/2,
@@ -139,35 +139,50 @@ public class ReconGaggleBridgeActivity extends Activity implements IReconEventLi
   	  
   	  Paint p = new Paint();
       p.setTextAlign(Align.CENTER);
-      p.setTextSize(24);
       
-      p.setColor(Color.RED);      
-      canvas.drawOval(new RectF(cx - 75, cy - 75, cx + 75, cy + 75), p);
+      p.setColor(Color.BLACK);
+      canvas.drawRect(0,0,w,h,p); // clear the screen
+
+      /* draw a circle, which is to become our compass rose */
+      p.setColor(Color.BLUE);      
+      canvas.drawOval(new RectF(cx - 70, cy - 70, cx + 70, cy + 70), p);
       p.setColor(Color.BLACK);      
-      canvas.drawOval(new RectF(cx - 50, cy - 50, cx + 50, cy + 50), p);
+      canvas.drawOval(new RectF(cx - 55, cy - 55, cx + 55, cy + 55), p);
       
       double bear = -data.bearing.getCurrent() / 180 * Math.PI - Math.PI / 2;
+      p.setStrokeWidth(5);
       canvas.drawLine(cx, cy, cx + (float)(75 * Math.cos(bear)), cy + (float)(75 * Math.sin(bear)), p);
+      p.setStrokeWidth(1);
   	  p.setColor(Color.WHITE);
-      canvas.drawText((int)Math.floor(data.altitude.getCurrent()) + "m", cx, cy+12, p);
-      canvas.drawText(dateformat.format(calendar.getTime()), 30, 20, p);
-      canvas.drawText((int)Math.floor(data.speed.getCurrent()) + "", cx+95, cy+12, p);
-      p.setTextSize(12);
-      canvas.drawText("kmh", cx+135, cy+12, p);
-  	  
+  	  p.setTextSize(30);
+      p.setTextAlign(Align.LEFT);
+      long now = System.currentTimeMillis();
+      canvas.drawText(String.format("%2d:%02d:%02ds", (now-takeoffTime)/3600000 , ((now-takeoffTime)/60000)%60, ((now-takeoffTime)/1000)%60), 10, 40, p); // time since takeoff
+      p.setTextAlign(Align.CENTER);
+      canvas.drawText((int)Math.floor(data.altitude.getCurrent()) + "m", cx, cy+12, p); // current altitude in the center
+  	  p.setTextAlign(Align.RIGHT);
+      canvas.drawText((int)Math.floor(data.speed.getCurrent()) + "", cx+130, cy+12, p);  // current speed
+      double glide = data.speed.getCurrent() / data.altitude.getChange() / 3.6d;         
+      if ((Math.abs(glide)>0.5) && (Math.abs(glide) < 25))                            
+        canvas.drawText(String.format("%.1f", glide), cx+130, cy+52, p);                 // glide ratio
+      p.setTextSize(16);
+      p.setTextAlign(Align.LEFT);
+      canvas.drawText("kmh", cx+135, cy+12, p);                                         // units
+      canvas.drawText(":1 ", cx+135, cy+52, p);
+      
       double vario = data.altitude.getChange();
       p.setTextSize(16);
-      canvas.drawText(String.format("%.1f", vario), cx-95, cy+12, p);
+      canvas.drawText(String.format("%.1f", vario), cx-100, cy+12, p);                  // variometer
       long bars = Math.min(Math.max(Math.round(vario),0),5);
       p.setColor(Color.GREEN);
       for (long bar = 0; bar < bars; bar++) {
-        canvas.drawRect(cx - 110, cy - bar * 10 - 17, cx - 78, cy - bar * 10 - 10, p);
+        canvas.drawRect(cx - 110, cy - bar * 10 - 17, cx - 78, cy - bar * 10 - 10, p);  // green bars for lift
       }
       bars = Math.min(Math.max(Math.round(vario),-5),0);
       Log.d(TAG, "Displaying " + bars + "bars");
       p.setColor(Color.RED);
       for (long bar = 0; bar > bars; bar--) {
-        canvas.drawRect(cx - 110, cy - bar * 10 + 27, cx - 78, cy - bar * 10 + 20, p);
+        canvas.drawRect(cx - 110, cy - bar * 10 + 27, cx - 78, cy - bar * 10 + 20, p);  // red bars for sink
       }
       
       
